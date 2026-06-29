@@ -1,10 +1,11 @@
 // ============================
-// ADMIN PANEL - CORE LOGIC
+// ADMIN PANEL - CORE LOGIC WITH SUPABASE
 // ============================
 
-// Default admin credentials (stored hashed in localStorage)
-const DEFAULT_USERNAME = "admin";
-const DEFAULT_PASSWORD = "admin123";
+// Supabase Configuration
+const SUPABASE_URL = "https://givabiaeqvlamyvigsjs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_35Fcp9wKNOc2DpzmQqHeyw_jmnoq85m";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Default shop config
 const defaultConfig = {
@@ -67,32 +68,63 @@ let productsList = [];
 let currentImageBase64 = "";
 let deletingProductId = null;
 
-// ============================
-// SECURITY: Simple hash function
-// ============================
-async function hashString(str) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function initCredentials() {
-  const storedCreds = localStorage.getItem("total_aqua_admin_creds");
-  if (!storedCreds) {
-    const hashedPass = await hashString(DEFAULT_PASSWORD);
-    const creds = { username: DEFAULT_USERNAME, passwordHash: hashedPass };
-    localStorage.setItem("total_aqua_admin_creds", JSON.stringify(creds));
+// Verify Login using Supabase Auth
+async function verifyLogin(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+  if (error) {
+    console.error("Login error:", error.message);
+    return false;
   }
+  return true;
 }
 
-async function verifyLogin(username, password) {
-  const storedCreds = localStorage.getItem("total_aqua_admin_creds");
-  if (!storedCreds) return false;
-  const creds = JSON.parse(storedCreds);
-  const inputHash = await hashString(password);
-  return creds.username === username && creds.passwordHash === inputHash;
+// Helper: Convert Base64 data URL to Blob for Supabase Storage uploads
+function dataURLtoBlob(dataurl) {
+  const arr = dataurl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
+// Helper: Upload product image to Supabase storage bucket 'product-images'
+async function uploadProductImage(productId, base64Data) {
+  if (!base64Data || !base64Data.startsWith('data:')) {
+    return base64Data; // Return as is if already a URL or empty
+  }
+  
+  try {
+    const blob = dataURLtoBlob(base64Data);
+    const fileExt = blob.type.split('/')[1] || 'jpg';
+    const fileName = `${productId}_${Date.now()}.${fileExt}`;
+    const filePath = `products/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('product-images')
+      .upload(filePath, blob, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  } catch (e) {
+    console.error("Error uploading image to storage, saving base64 instead", e);
+    return base64Data; // fallback to base64 if upload fails
+  }
 }
 
 // ============================
@@ -179,11 +211,13 @@ const secErrorMsg = document.getElementById("secErrorMsg");
 // INIT
 // ============================
 document.addEventListener("DOMContentLoaded", async () => {
-  await initCredentials();
-
   // Check session
-  if (sessionStorage.getItem("aqua_admin_session") === "active") {
-    showDashboard();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    await showDashboard();
+  } else {
+    loginScreen.style.display = "flex";
+    adminWrapper.style.display = "none";
   }
 
   // Login
@@ -191,9 +225,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     e.preventDefault();
     const ok = await verifyLogin(loginUser.value.trim(), loginPass.value);
     if (ok) {
-      sessionStorage.setItem("aqua_admin_session", "active");
       loginError.style.display = "none";
-      showDashboard();
+      await showDashboard();
     } else {
       loginError.style.display = "flex";
       loginPass.value = "";
@@ -209,8 +242,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Logout
-  logoutBtn.addEventListener("click", () => {
-    sessionStorage.removeItem("aqua_admin_session");
+  logoutBtn.addEventListener("click", async () => {
+    await supabase.auth.signOut();
     adminWrapper.style.display = "none";
     loginScreen.style.display = "flex";
     loginUser.value = "";
@@ -274,12 +307,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     saveShopSettings();
   });
 
-  resetSettingsBtn.addEventListener("click", () => {
+  resetSettingsBtn.addEventListener("click", async () => {
     if (confirm("Kya aap shop settings ko default par reset karna chahte hain?")) {
-      shopConfig = { ...defaultConfig };
-      populateSettings();
-      saveConfigLS();
-      showToast("Settings reset to defaults!");
+      try {
+        const { error } = await supabase
+          .from('shop_config')
+          .update({
+            shop_name: defaultConfig.shopName,
+            location: defaultConfig.location,
+            tagline: defaultConfig.tagline,
+            whatsapp: defaultConfig.whatsapp,
+            phone: defaultConfig.phone,
+            address: defaultConfig.address,
+            hours: defaultConfig.hours
+          })
+          .eq('id', 1);
+
+        if (error) throw error;
+
+        shopConfig = { ...defaultConfig };
+        populateSettings();
+        saveConfigLS();
+        showToast("Settings reset to defaults!");
+      } catch (e) {
+        console.error("Error resetting settings to defaults", e);
+        showToast("Error resetting settings!");
+      }
     }
   });
 
@@ -322,11 +375,11 @@ window.switchPage = switchPage;
 // ============================
 // SHOW DASHBOARD
 // ============================
-function showDashboard() {
+async function showDashboard() {
   loginScreen.style.display = "none";
   adminWrapper.style.display = "flex";
-  loadShopConfig();
-  loadProducts();
+  await loadShopConfig();
+  await loadProducts();
   updateDashboardStats();
   renderProductsGrid();
   renderRecentProducts();
@@ -335,16 +388,33 @@ function showDashboard() {
 // ============================
 // SHOP CONFIG
 // ============================
-function loadShopConfig() {
-  const saved = localStorage.getItem("total_aqua_config");
-  if (saved) {
-    try {
-      shopConfig = JSON.parse(saved);
-      if (shopConfig.shopName === "AquaPure Solutions") {
-        shopConfig.shopName = "Total Aqua Solution";
-        saveConfigLS();
-      }
-    } catch (e) {
+async function loadShopConfig() {
+  try {
+    const { data, error } = await supabase
+      .from('shop_config')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (error) throw error;
+    if (data) {
+      shopConfig = {
+        shopName: data.shop_name,
+        tagline: data.tagline,
+        location: data.location,
+        whatsapp: data.whatsapp,
+        phone: data.phone,
+        address: data.address,
+        hours: data.hours
+      };
+    }
+  } catch (e) {
+    console.error("Error loading config from Supabase, using defaults", e);
+    // fallback to local storage if needed
+    const saved = localStorage.getItem("total_aqua_config");
+    if (saved) {
+      try { shopConfig = JSON.parse(saved); } catch(err) { shopConfig = { ...defaultConfig }; }
+    } else {
       shopConfig = { ...defaultConfig };
     }
   }
@@ -367,18 +437,42 @@ function sanitizeWhatsApp(num) {
   return cleaned;
 }
 
-function saveShopSettings() {
-  shopConfig.shopName = sShopName.value.trim();
-  shopConfig.location = sLocation.value.trim();
-  shopConfig.tagline = sTagline.value.trim();
-  shopConfig.whatsapp = sanitizeWhatsApp(sWhatsApp.value.trim());
-  shopConfig.phone = sPhone.value.trim();
-  shopConfig.address = sAddress.value.trim();
-  shopConfig.hours = sHours.value.trim();
+async function saveShopSettings() {
+  const updatedConfig = {
+    shop_name: sShopName.value.trim(),
+    location: sLocation.value.trim(),
+    tagline: sTagline.value.trim(),
+    whatsapp: sanitizeWhatsApp(sWhatsApp.value.trim()),
+    phone: sPhone.value.trim(),
+    address: sAddress.value.trim(),
+    hours: sHours.value.trim()
+  };
 
-  saveConfigLS();
-  updateDashboardStats();
-  showToast("Shop settings saved successfully!");
+  try {
+    const { error } = await supabase
+      .from('shop_config')
+      .update(updatedConfig)
+      .eq('id', 1);
+
+    if (error) throw error;
+
+    shopConfig = {
+      shopName: updatedConfig.shop_name,
+      location: updatedConfig.location,
+      tagline: updatedConfig.tagline,
+      whatsapp: updatedConfig.whatsapp,
+      phone: updatedConfig.phone,
+      address: updatedConfig.address,
+      hours: updatedConfig.hours
+    };
+
+    saveConfigLS();
+    updateDashboardStats();
+    showToast("Shop settings saved successfully!");
+  } catch (e) {
+    console.error("Error saving settings to Supabase", e);
+    showToast("Error: Settings save failed!");
+  }
 }
 
 function saveConfigLS() {
@@ -388,13 +482,29 @@ function saveConfigLS() {
 // ============================
 // PRODUCTS
 // ============================
-function loadProducts() {
-  const saved = localStorage.getItem("total_aqua_products");
-  if (saved) {
-    try { productsList = JSON.parse(saved); } catch (e) { productsList = [...defaultProducts]; }
-  } else {
+async function loadProducts() {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) throw error;
+
+    productsList = data.map(item => ({
+      id: item.id,
+      brand: item.brand,
+      name: item.name,
+      type: item.type,
+      price: Number(item.price),
+      originalPrice: Number(item.original_price),
+      badge: item.badge,
+      image: item.image,
+      specs: item.specs || []
+    }));
+  } catch (e) {
+    console.error("Error loading products from Supabase", e);
     productsList = [...defaultProducts];
-    saveProductsLS();
   }
 }
 
@@ -639,7 +749,7 @@ function removeImage() {
   resetImagePreview();
 }
 
-function handleProductSave(e) {
+async function handleProductSave(e) {
   e.preventDefault();
 
   const id = prodEditId.value;
@@ -654,29 +764,78 @@ function handleProductSave(e) {
   const originalPrice = parseInt(prodOriginalPrice.value);
   const specsArray = prodSpecs.value.split(",").map(s => s.trim()).filter(s => s.length > 0);
 
+  let imageUrl = currentImageBase64;
+  
+  // Temp ID if new
+  const tempId = id ? parseInt(id) : (productsList.length > 0 ? Math.max(...productsList.map(p => p.id)) + 1 : 1);
+  
+  // Upload to Supabase Storage if it's a new base64 upload
+  if (currentImageBase64 && currentImageBase64.startsWith('data:')) {
+    imageUrl = await uploadProductImage(tempId, currentImageBase64);
+  }
+
   const productData = {
-    brand, name, type, price, originalPrice, badge,
-    image: currentImageBase64,
+    brand,
+    name,
+    type,
+    price,
+    original_price: originalPrice,
+    badge,
+    image: imageUrl,
     specs: specsArray
   };
 
-  if (id) {
-    const idx = productsList.findIndex(p => p.id === parseInt(id));
-    if (idx !== -1) {
-      productsList[idx] = { ...productsList[idx], ...productData };
-    }
-    showToast(`"${name}" successfully update ho gaya!`);
-  } else {
-    const nextId = productsList.length > 0 ? Math.max(...productsList.map(p => p.id)) + 1 : 1;
-    productsList.push({ id: nextId, ...productData });
-    showToast(`"${name}" successfully add ho gaya!`);
-  }
+  try {
+    if (id) {
+      const { error } = await supabase
+        .from('products')
+        .update(productData)
+        .eq('id', parseInt(id));
 
-  saveProductsLS();
-  renderProductsGrid();
-  renderRecentProducts();
-  updateDashboardStats();
-  closeProductModal();
+      if (error) throw error;
+      
+      const idx = productsList.findIndex(p => p.id === parseInt(id));
+      if (idx !== -1) {
+        productsList[idx] = { 
+          id: parseInt(id),
+          brand, name, type, price, originalPrice: originalPrice, badge,
+          image: imageUrl, specs: specsArray 
+        };
+      }
+      showToast(`"${name}" successfully update ho gaya!`);
+    } else {
+      const { data, error } = await supabase
+        .from('products')
+        .insert([productData])
+        .select();
+
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        productsList.push({
+          id: data[0].id,
+          brand, name, type, price, originalPrice: originalPrice, badge,
+          image: imageUrl, specs: specsArray
+        });
+      } else {
+        productsList.push({
+          id: tempId,
+          brand, name, type, price, originalPrice: originalPrice, badge,
+          image: imageUrl, specs: specsArray
+        });
+      }
+      showToast(`"${name}" successfully add ho gaya!`);
+    }
+
+    saveProductsLS();
+    renderProductsGrid();
+    renderRecentProducts();
+    updateDashboardStats();
+    closeProductModal();
+  } catch (e) {
+    console.error("Error saving product to Supabase", e);
+    showToast("Error: Product save failed!");
+  }
 }
 
 // ============================
@@ -690,16 +849,29 @@ function openDeleteModal(id) {
   deleteModal.classList.add("open");
 }
 
-function handleDeleteConfirm() {
+async function handleDeleteConfirm() {
   if (deletingProductId === null) return;
   const prod = productsList.find(p => p.id === deletingProductId);
-  productsList = productsList.filter(p => p.id !== deletingProductId);
-  saveProductsLS();
-  renderProductsGrid();
-  renderRecentProducts();
-  updateDashboardStats();
-  deleteModal.classList.remove("open");
-  showToast(`"${prod?.name || "Product"}" delete ho gaya!`);
+  
+  try {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', deletingProductId);
+
+    if (error) throw error;
+
+    productsList = productsList.filter(p => p.id !== deletingProductId);
+    saveProductsLS();
+    renderProductsGrid();
+    renderRecentProducts();
+    updateDashboardStats();
+    deleteModal.classList.remove("open");
+    showToast(`"${prod?.name || "Product"}" delete ho gaya!`);
+  } catch (e) {
+    console.error("Error deleting product from Supabase", e);
+    showToast("Error: Delete failed!");
+  }
   deletingProductId = null;
 }
 
@@ -709,19 +881,10 @@ function handleDeleteConfirm() {
 async function handleSecuritySave() {
   secError.style.display = "none";
 
-  const newUser = secUser.value.trim();
+  const newEmail = secUser.value.trim();
   const currentPass = secCurrentPass.value;
   const newPass = secNewPass.value;
   const confirmPass = secConfirmPass.value;
-
-  // Verify current password
-  const storedCreds = JSON.parse(localStorage.getItem("total_aqua_admin_creds"));
-  const currentHash = await hashString(currentPass);
-  if (currentHash !== storedCreds.passwordHash) {
-    secErrorMsg.textContent = "Current password galat hai!";
-    secError.style.display = "flex";
-    return;
-  }
 
   if (newPass !== confirmPass) {
     secErrorMsg.textContent = "New password aur Confirm password match nahi karte!";
@@ -735,13 +898,31 @@ async function handleSecuritySave() {
     return;
   }
 
-  // Save new credentials
-  const newHash = await hashString(newPass);
-  const newCreds = { username: newUser, passwordHash: newHash };
-  localStorage.setItem("total_aqua_admin_creds", JSON.stringify(newCreds));
+  try {
+    // 1. Update Password
+    const { error: passError } = await supabase.auth.updateUser({
+      password: newPass
+    });
+    if (passError) throw passError;
 
-  securityForm.reset();
-  showToast("Login credentials updated! Naye credentials se login karein.");
+    // 2. Update Email if changed
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.email !== newEmail) {
+      const { error: emailError } = await supabase.auth.updateUser({
+        email: newEmail
+      });
+      if (emailError) throw emailError;
+      showToast("Password updated! New email update confirmation check karein.");
+    } else {
+      showToast("Credentials updated successfully!");
+    }
+
+    securityForm.reset();
+  } catch (e) {
+    console.error("Error updating credentials in Supabase", e);
+    secErrorMsg.textContent = e.message || "Credential update failed!";
+    secError.style.display = "flex";
+  }
 }
 
 // ============================

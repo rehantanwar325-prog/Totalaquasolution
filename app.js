@@ -84,6 +84,11 @@ const defaultProducts = [
 
 let products = [];
 
+// Supabase Configuration
+const SUPABASE_URL = "https://givabiaeqvlamyvigsjs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_35Fcp9wKNOc2DpzmQqHeyw_jmnoq85m";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // Default configurations
 const defaultConfig = {
   shopName: "Total Aqua Solution",
@@ -152,9 +157,9 @@ const serviceForm = document.getElementById("serviceForm");
 const srvDate = document.getElementById("srvDate");
 
 // Initialize Website
-document.addEventListener("DOMContentLoaded", () => {
-  loadConfig();
-  loadProducts();
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadConfig();
+  await loadProducts();
   renderBrandFilters();
   renderProducts();
   setupFilterListeners();
@@ -195,33 +200,68 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Product Catalog Management
-function loadProducts() {
-  const saved = localStorage.getItem("total_aqua_products");
-  if (saved) {
-    try {
-      products = JSON.parse(saved);
-    } catch (e) {
-      console.error("Error loading products, using defaults", e);
+async function loadProducts() {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) throw error;
+    
+    products = data.map(item => ({
+      id: item.id,
+      brand: item.brand,
+      name: item.name,
+      type: item.type,
+      price: Number(item.price),
+      originalPrice: Number(item.original_price),
+      badge: item.badge,
+      image: item.image,
+      specs: item.specs || []
+    }));
+
+    if (products.length === 0) {
       products = [ ...defaultProducts ];
     }
-  } else {
+  } catch (e) {
+    console.error("Error loading products from Supabase, using defaults", e);
     products = [ ...defaultProducts ];
-    localStorage.setItem("total_aqua_products", JSON.stringify(products));
   }
 }
 
 // Configuration Management
-function loadConfig() {
-  const saved = localStorage.getItem("total_aqua_config");
-  if (saved) {
-    try {
-      currentConfig = JSON.parse(saved);
-      if (currentConfig.shopName === "AquaPure Solutions") {
-        currentConfig.shopName = "Total Aqua Solution";
-        localStorage.setItem("total_aqua_config", JSON.stringify(currentConfig));
+async function loadConfig() {
+  try {
+    const { data, error } = await supabase
+      .from('shop_config')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (error) throw error;
+
+    if (data) {
+      currentConfig = {
+        shopName: data.shop_name,
+        tagline: data.tagline,
+        location: data.location,
+        whatsapp: data.whatsapp,
+        phone: data.phone,
+        address: data.address,
+        hours: data.hours
+      };
+    }
+  } catch (e) {
+    console.error("Error loading config from Supabase, using local fallback", e);
+    const saved = localStorage.getItem("total_aqua_config");
+    if (saved) {
+      try {
+        currentConfig = JSON.parse(saved);
+      } catch (err) {
+        currentConfig = { ...defaultConfig };
       }
-    } catch (e) {
-      console.error("Error loading config, using default", e);
+    } else {
       currentConfig = { ...defaultConfig };
     }
   }
@@ -548,11 +588,11 @@ function setupFAQAccordion() {
 }
 
 // Storage event listener for instant synchronization between tabs
-window.addEventListener("storage", (e) => {
+window.addEventListener("storage", async (e) => {
   if (e.key === "total_aqua_config") {
-    loadConfig();
+    await loadConfig();
   } else if (e.key === "total_aqua_products") {
-    loadProducts();
+    await loadProducts();
     renderBrandFilters();
     renderProducts();
   }

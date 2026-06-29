@@ -27,8 +27,8 @@
       </div>
       <form id="loginForm">
         <div class="login-field">
-          <label><i class="fa-solid fa-user"></i> Username</label>
-          <input type="text" id="loginUser" placeholder="Admin username" autocomplete="off" required>
+          <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+          <input type="email" id="loginUser" placeholder="Admin email" autocomplete="off" required>
         </div>
         <div class="login-field">
           <label><i class="fa-solid fa-lock"></i> Password</label>
@@ -38,11 +38,11 @@
           </div>
         </div>
         <div class="login-error" id="loginError">
-          <i class="fa-solid fa-circle-exclamation"></i> <span>Username ya password galat hai!</span>
+          <i class="fa-solid fa-circle-exclamation"></i> <span>Email ya password galat hai!</span>
         </div>
         <button type="submit" class="login-btn"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
         <div class="login-hint">
-          <i class="fa-solid fa-circle-info"></i> Default: <strong>admin</strong> / <strong>admin123</strong>
+          <i class="fa-solid fa-circle-info"></i> Login using your Supabase Admin email & password.
         </div>
       </form>
     </div>
@@ -245,8 +245,8 @@
           <form id="securityForm">
             <div class="settings-grid">
               <div class="s-field">
-                <label><i class="fa-solid fa-user"></i> New Username <span class="req">*</span></label>
-                <input type="text" id="secUser" required placeholder="New admin username" autocomplete="off">
+                <label><i class="fa-solid fa-envelope"></i> New Email <span class="req">*</span></label>
+                <input type="email" id="secUser" required placeholder="New admin email" autocomplete="off">
               </div>
               <div class="s-field">
                 <label><i class="fa-solid fa-lock"></i> Current Password <span class="req">*</span></label>
@@ -384,6 +384,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="admin.js"></script>
 </body>
 </html>
