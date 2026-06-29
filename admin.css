@@ -210,6 +210,12 @@ ul { list-style: none; }
   z-index: 2;
 }
 
+/* Hide Microsoft Edge / IE default eye icon */
+.password-wrapper input::-ms-reveal,
+.password-wrapper input::-ms-clear {
+  display: none !important;
+}
+
 .login-error {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
