@@ -68,8 +68,9 @@ let productsList = [];
 let currentImageBase64 = "";
 let deletingProductId = null;
 
-// Verify Login using Supabase Auth
-async function verifyLogin(email, password) {
+// Verify Login using Supabase Auth (supports username by appending a fake domain)
+async function verifyLogin(username, password) {
+  const email = username.includes('@') ? username : `${username}@totalaquasolution.com`;
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password
@@ -884,7 +885,8 @@ async function handleDeleteConfirm() {
 async function handleSecuritySave() {
   secError.style.display = "none";
 
-  const newEmail = secUser.value.trim();
+  const newUsername = secUser.value.trim();
+  const newEmail = newUsername.includes('@') ? newUsername : `${newUsername}@totalaquasolution.com`;
   const currentPass = secCurrentPass.value;
   const newPass = secNewPass.value;
   const confirmPass = secConfirmPass.value;
@@ -915,7 +917,7 @@ async function handleSecuritySave() {
         email: newEmail
       });
       if (emailError) throw emailError;
-      showToast("Password updated! New email update confirmation check karein.");
+      showToast("Credentials updated! (Username change validation email sent if applicable)");
     } else {
       showToast("Credentials updated successfully!");
     }
