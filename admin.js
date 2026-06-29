@@ -309,6 +309,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   resetSettingsBtn.addEventListener("click", async () => {
     if (confirm("Kya aap shop settings ko default par reset karna chahte hain?")) {
+      // Always update local state first
+      shopConfig = { ...defaultConfig };
+      populateSettings();
+      saveConfigLS();
+
+      // Then try Supabase sync
       try {
         const { error } = await supabase
           .from('shop_config')
@@ -322,17 +328,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             hours: defaultConfig.hours
           })
           .eq('id', 1);
-
         if (error) throw error;
-
-        shopConfig = { ...defaultConfig };
-        populateSettings();
-        saveConfigLS();
-        showToast("Settings reset to defaults!");
       } catch (e) {
-        console.error("Error resetting settings to defaults", e);
-        showToast("Error resetting settings!");
+        console.error("Supabase reset sync failed", e);
       }
+      showToast("Settings reset to defaults!");
     }
   });
 
@@ -448,6 +448,20 @@ async function saveShopSettings() {
     hours: sHours.value.trim()
   };
 
+  // Always update local state and localStorage first
+  shopConfig = {
+    shopName: updatedConfig.shop_name,
+    location: updatedConfig.location,
+    tagline: updatedConfig.tagline,
+    whatsapp: updatedConfig.whatsapp,
+    phone: updatedConfig.phone,
+    address: updatedConfig.address,
+    hours: updatedConfig.hours
+  };
+  saveConfigLS();
+  updateDashboardStats();
+
+  // Then try to sync to Supabase
   try {
     const { error } = await supabase
       .from('shop_config')
@@ -455,23 +469,10 @@ async function saveShopSettings() {
       .eq('id', 1);
 
     if (error) throw error;
-
-    shopConfig = {
-      shopName: updatedConfig.shop_name,
-      location: updatedConfig.location,
-      tagline: updatedConfig.tagline,
-      whatsapp: updatedConfig.whatsapp,
-      phone: updatedConfig.phone,
-      address: updatedConfig.address,
-      hours: updatedConfig.hours
-    };
-
-    saveConfigLS();
-    updateDashboardStats();
     showToast("Shop settings saved successfully!");
   } catch (e) {
-    console.error("Error saving settings to Supabase", e);
-    showToast("Error: Settings save failed!");
+    console.error("Supabase sync failed, saved locally", e);
+    showToast("Settings saved locally! (Supabase sync pending)");
   }
 }
 
@@ -479,6 +480,9 @@ function saveConfigLS() {
   localStorage.setItem("total_aqua_config", JSON.stringify(shopConfig));
 }
 
+function saveProductsLS() {
+  localStorage.setItem("total_aqua_products", JSON.stringify(productsList));
+}
 // ============================
 // PRODUCTS
 // ============================
@@ -785,56 +789,54 @@ async function handleProductSave(e) {
     specs: specsArray
   };
 
+  // Always update local state and localStorage first
+  if (id) {
+    const idx = productsList.findIndex(p => p.id === parseInt(id));
+    if (idx !== -1) {
+      productsList[idx] = { 
+        id: parseInt(id),
+        brand, name, type, price, originalPrice: originalPrice, badge,
+        image: imageUrl, specs: specsArray 
+      };
+    }
+  } else {
+    productsList.push({
+      id: tempId,
+      brand, name, type, price, originalPrice: originalPrice, badge,
+      image: imageUrl, specs: specsArray
+    });
+  }
+  saveProductsLS();
+  renderProductsGrid();
+  renderRecentProducts();
+  updateDashboardStats();
+  closeProductModal();
+
+  // Then try to sync to Supabase
   try {
     if (id) {
       const { error } = await supabase
         .from('products')
         .update(productData)
         .eq('id', parseInt(id));
-
       if (error) throw error;
-      
-      const idx = productsList.findIndex(p => p.id === parseInt(id));
-      if (idx !== -1) {
-        productsList[idx] = { 
-          id: parseInt(id),
-          brand, name, type, price, originalPrice: originalPrice, badge,
-          image: imageUrl, specs: specsArray 
-        };
-      }
-      showToast(`"${name}" successfully update ho gaya!`);
     } else {
       const { data, error } = await supabase
         .from('products')
         .insert([productData])
         .select();
-
       if (error) throw error;
-      
+      // Update local ID with Supabase-generated ID
       if (data && data.length > 0) {
-        productsList.push({
-          id: data[0].id,
-          brand, name, type, price, originalPrice: originalPrice, badge,
-          image: imageUrl, specs: specsArray
-        });
-      } else {
-        productsList.push({
-          id: tempId,
-          brand, name, type, price, originalPrice: originalPrice, badge,
-          image: imageUrl, specs: specsArray
-        });
+        const localIdx = productsList.findIndex(p => p.id === tempId);
+        if (localIdx !== -1) productsList[localIdx].id = data[0].id;
+        saveProductsLS();
       }
-      showToast(`"${name}" successfully add ho gaya!`);
     }
-
-    saveProductsLS();
-    renderProductsGrid();
-    renderRecentProducts();
-    updateDashboardStats();
-    closeProductModal();
+    showToast(`"${name}" successfully ${id ? 'update' : 'add'} ho gaya!`);
   } catch (e) {
-    console.error("Error saving product to Supabase", e);
-    showToast("Error: Product save failed!");
+    console.error("Supabase sync failed, saved locally", e);
+    showToast(`"${name}" saved locally! (Supabase sync pending)`);
   }
 }
 
@@ -852,25 +854,26 @@ function openDeleteModal(id) {
 async function handleDeleteConfirm() {
   if (deletingProductId === null) return;
   const prod = productsList.find(p => p.id === deletingProductId);
-  
+
+  // Always update local state and localStorage first
+  productsList = productsList.filter(p => p.id !== deletingProductId);
+  saveProductsLS();
+  renderProductsGrid();
+  renderRecentProducts();
+  updateDashboardStats();
+  deleteModal.classList.remove("open");
+
+  // Then try to sync to Supabase
   try {
     const { error } = await supabase
       .from('products')
       .delete()
       .eq('id', deletingProductId);
-
     if (error) throw error;
-
-    productsList = productsList.filter(p => p.id !== deletingProductId);
-    saveProductsLS();
-    renderProductsGrid();
-    renderRecentProducts();
-    updateDashboardStats();
-    deleteModal.classList.remove("open");
     showToast(`"${prod?.name || "Product"}" delete ho gaya!`);
   } catch (e) {
-    console.error("Error deleting product from Supabase", e);
-    showToast("Error: Delete failed!");
+    console.error("Supabase sync failed, deleted locally", e);
+    showToast(`"${prod?.name || "Product"}" locally delete hua! (Supabase sync pending)`);
   }
   deletingProductId = null;
 }

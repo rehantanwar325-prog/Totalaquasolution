@@ -222,11 +222,23 @@ async function loadProducts() {
     }));
 
     if (products.length === 0) {
-      products = [ ...defaultProducts ];
+      // Supabase table empty — try localStorage
+      const saved = localStorage.getItem("total_aqua_products");
+      if (saved) {
+        try { products = JSON.parse(saved); } catch(err) { products = [ ...defaultProducts ]; }
+      } else {
+        products = [ ...defaultProducts ];
+      }
     }
   } catch (e) {
-    console.error("Error loading products from Supabase, using defaults", e);
-    products = [ ...defaultProducts ];
+    console.error("Error loading products from Supabase, using local fallback", e);
+    // Try localStorage first, then defaults
+    const saved = localStorage.getItem("total_aqua_products");
+    if (saved) {
+      try { products = JSON.parse(saved); } catch(err) { products = [ ...defaultProducts ]; }
+    } else {
+      products = [ ...defaultProducts ];
+    }
   }
 }
 
