@@ -590,7 +590,7 @@ img { max-width: 100%; display: block; }
    PRODUCTS SECTION
    ============================================ */
 .products-section {
-  padding: 100px 0;
+  padding: 160px 0 100px;
   background: linear-gradient(180deg, var(--light) 0%, var(--white) 100%);
   position: relative;
 }
