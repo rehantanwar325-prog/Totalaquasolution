@@ -11,10 +11,10 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const defaultConfig = {
   shopName: "Total Aqua Solution",
   tagline: "Pure Water, Healthy Life",
-  location: "Delhi NCR",
+  location: "Sikar (Rajasthan)",
   whatsapp: "919876543210",
   phone: "+91 98765 43210",
-  address: "Shop No. 12, Main Market, Sector 15, Near Metro Station, Delhi NCR",
+  address: "Devipura Rd, near S. N, Bisayatiyan Mohalla, Sikar, Rajasthan 332001",
   hours: "9:00 AM to 8:00 PM (All Days)"
 };
 
