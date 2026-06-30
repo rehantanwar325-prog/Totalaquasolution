@@ -70,16 +70,21 @@ let deletingProductId = null;
 
 // Verify Login using Supabase Auth (supports username by appending a fake domain)
 async function verifyLogin(username, password) {
-  const email = username.includes('@') ? username : `${username}@totalaquasolution.com`;
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-  if (error) {
-    console.error("Login error:", error.message);
+  try {
+    const email = username.includes('@') ? username : `${username}@totalaquasolution.com`;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    if (error) {
+      console.error("Login error:", error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("Authentication request failed:", e);
     return false;
   }
-  return true;
 }
 
 // Helper: Convert Base64 data URL to Blob for Supabase Storage uploads
@@ -212,11 +217,17 @@ const secErrorMsg = document.getElementById("secErrorMsg");
 // INIT
 // ============================
 document.addEventListener("DOMContentLoaded", async () => {
-  // Check session
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) {
-    await showDashboard();
-  } else {
+  // Check session with error handling to prevent script crashes on network/paused DB errors
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await showDashboard();
+    } else {
+      loginScreen.style.display = "flex";
+      adminWrapper.style.display = "none";
+    }
+  } catch (err) {
+    console.error("Supabase session check failed on load:", err);
     loginScreen.style.display = "flex";
     adminWrapper.style.display = "none";
   }
@@ -224,14 +235,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Login
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const ok = await verifyLogin(loginUser.value.trim(), loginPass.value);
-    if (ok) {
-      loginError.style.display = "none";
-      await showDashboard();
-    } else {
+    try {
+      const ok = await verifyLogin(loginUser.value.trim(), loginPass.value);
+      if (ok) {
+        loginError.style.display = "none";
+        await showDashboard();
+      } else {
+        loginError.style.display = "flex";
+        loginPass.value = "";
+        loginPass.focus();
+      }
+    } catch (err) {
+      console.error("Login submit handler error:", err);
       loginError.style.display = "flex";
-      loginPass.value = "";
-      loginPass.focus();
+      loginError.querySelector("span").textContent = "Connection error. Please try again.";
     }
   });
 
