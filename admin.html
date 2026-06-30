@@ -1,20 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Panel | Total Aqua Solution</title>
-
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="admin.css">
 </head>
-
 <body>
 
   <!-- LOGIN SCREEN -->
@@ -46,7 +42,7 @@
         </div>
         <button type="submit" class="login-btn"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
         <div class="login-hint">
-          <i class="fa-solid fa-circle-info"></i> Login using your Admi username & password.
+          <i class="fa-solid fa-circle-info"></i> Login using your Admin username & password.
         </div>
       </form>
     </div>
@@ -232,10 +228,8 @@
               </div>
             </div>
             <div class="settings-actions">
-              <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save
-                Settings</button>
-              <button type="button" class="btn btn-ghost" id="resetSettingsBtn"><i class="fa-solid fa-rotate-left"></i>
-                Reset Defaults</button>
+              <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Settings</button>
+              <button type="button" class="btn btn-ghost" id="resetSettingsBtn"><i class="fa-solid fa-rotate-left"></i> Reset Defaults</button>
             </div>
           </form>
         </div>
@@ -271,8 +265,7 @@
               <i class="fa-solid fa-triangle-exclamation"></i> <span id="secErrorMsg"></span>
             </div>
             <div class="settings-actions">
-              <button type="submit" class="btn btn-primary"><i class="fa-solid fa-shield-check"></i> Update
-                Credentials</button>
+              <button type="submit" class="btn btn-primary"><i class="fa-solid fa-shield-check"></i> Update Credentials</button>
             </div>
           </form>
         </div>
@@ -290,7 +283,7 @@
       <form id="productForm">
         <div class="modal-body">
           <input type="hidden" id="prodEditId" value="">
-
+          
           <!-- Image Upload Section -->
           <div class="image-upload-section">
             <div class="image-preview" id="imagePreview">
@@ -300,10 +293,8 @@
             </div>
             <input type="file" id="prodImage" accept="image/*" hidden>
             <div class="image-actions">
-              <button type="button" class="btn btn-sm btn-outline" id="uploadImageBtn"><i
-                  class="fa-solid fa-upload"></i> Choose Image</button>
-              <button type="button" class="btn btn-sm btn-danger-outline" id="removeImageBtn" style="display:none;"><i
-                  class="fa-solid fa-trash"></i> Remove</button>
+              <button type="button" class="btn btn-sm btn-outline" id="uploadImageBtn"><i class="fa-solid fa-upload"></i> Choose Image</button>
+              <button type="button" class="btn btn-sm btn-danger-outline" id="removeImageBtn" style="display:none;"><i class="fa-solid fa-trash"></i> Remove</button>
             </div>
           </div>
 
@@ -320,8 +311,7 @@
                 <option value="Blue Star">Blue Star</option>
                 <option value="Other">Other / Custom</option>
               </select>
-              <input type="text" id="prodBrandCustom" placeholder="Enter custom brand name"
-                style="display:none; margin-top: 8px;">
+              <input type="text" id="prodBrandCustom" placeholder="Enter custom brand name" style="display:none; margin-top: 8px;">
             </div>
             <div class="m-field">
               <label>Model Name <span class="req">*</span></label>
@@ -366,8 +356,7 @@
             </div>
             <div class="m-field full">
               <label>Key Features / Specs <span class="req">*</span></label>
-              <textarea id="prodSpecs" rows="3" required
-                placeholder="Features ko comma (,) se separate karein&#10;e.g. TDS Controller, 9L Tank, Copper Filter, 1 Year Warranty"></textarea>
+              <textarea id="prodSpecs" rows="3" required placeholder="Features ko comma (,) se separate karein&#10;e.g. TDS Controller, 9L Tank, Copper Filter, 1 Year Warranty"></textarea>
               <small>Har feature ke beech comma (,) lagayein</small>
             </div>
           </div>
@@ -386,8 +375,7 @@
       <div class="modal-body" style="text-align:center; padding: 40px 30px;">
         <div class="delete-icon"><i class="fa-solid fa-trash-can"></i></div>
         <h3 style="margin: 16px 0 8px;">Delete Product?</h3>
-        <p style="color: var(--text-muted); margin-bottom: 24px;" id="deleteProductName">Kya aap sach me is product ko
-          hatana chahte hain?</p>
+        <p style="color: var(--text-muted); margin-bottom: 24px;" id="deleteProductName">Kya aap sach me is product ko hatana chahte hain?</p>
         <div style="display:flex; gap: 12px; justify-content:center;">
           <button class="btn btn-ghost" id="cancelDelete">Cancel</button>
           <button class="btn btn-danger" id="confirmDelete"><i class="fa-solid fa-trash"></i> Delete</button>
@@ -399,5 +387,4 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="admin.js"></script>
 </body>
-
 </html>

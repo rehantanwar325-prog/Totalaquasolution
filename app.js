@@ -87,7 +87,7 @@ let products = [];
 // Supabase Configuration
 const SUPABASE_URL = "https://givabiaeqvlamyvigsjs.supabase.co";
 const SUPABASE_KEY = "sb_publishable_35Fcp9wKNOc2DpzmQqHeyw_jmnoq85m";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Default configurations
 const defaultConfig = {
@@ -202,7 +202,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 // Product Catalog Management
 async function loadProducts() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('products')
       .select('*')
       .order('id', { ascending: true });
@@ -245,7 +245,7 @@ async function loadProducts() {
 // Configuration Management
 async function loadConfig() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('shop_config')
       .select('*')
       .eq('id', 1)
