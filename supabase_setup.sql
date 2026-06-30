@@ -24,8 +24,8 @@ VALUES (
     'Total Aqua Solution',
     'Pure Water, Healthy Life',
     'Sikar (Rajasthan)',
-    '919876543210',
-    '+91 98765 43210',
+    '917851039925',
+    '+91 78510 39925',
     'Devipura Rd, near S. N, Bisayatiyan Mohalla, Sikar, Rajasthan 332001',
     '9:00 AM to 8:00 PM (All Days)'
 ) ON CONFLICT (id) DO NOTHING;

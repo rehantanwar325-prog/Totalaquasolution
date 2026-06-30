@@ -94,8 +94,8 @@ const defaultConfig = {
   shopName: "Total Aqua Solution",
   tagline: "Pure Water, Healthy Life",
   location: "Sikar (Rajasthan)",
-  whatsapp: "919876543210",
-  phone: "+91 98765 43210",
+  whatsapp: "917851039925",
+  phone: "+91 78510 39925",
   address: "Devipura Rd, near S. N, Bisayatiyan Mohalla, Sikar, Rajasthan 332001",
   hours: "9:00 AM to 8:00 PM (All Days)"
 };
