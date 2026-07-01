@@ -89,6 +89,22 @@ const SUPABASE_URL = "https://givabiaeqvlamyvigsjs.supabase.co";
 const SUPABASE_KEY = "sb_publishable_35Fcp9wKNOc2DpzmQqHeyw_jmnoq85m";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Helper: Escape HTML to prevent XSS
+function escapeHTML(str) {
+  if (str === null || str === undefined) return "";
+  if (typeof str !== 'string') str = String(str);
+  return str.replace(/[&<>"']/g, function(m) {
+    switch (m) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#039;';
+      default: return m;
+    }
+  });
+}
+
 // Default configurations
 const defaultConfig = {
   shopName: "Total Aqua Solution",
@@ -373,24 +389,24 @@ function renderProducts() {
     card.style.opacity = "0";
     card.style.transform = "translateY(20px)";
 
-    const specsHTML = p.specs.map(spec => `<li><i class="fa-solid fa-check-circle"></i> ${spec}</li>`).join("");
+    const specsHTML = p.specs.map(spec => `<li><i class="fa-solid fa-check-circle"></i> ${escapeHTML(spec)}</li>`).join("");
 
     const imageHTML = p.image
-      ? `<img src="${p.image}" alt="${p.name}" style="width:100%;height:100%;object-fit:contain;">`
+      ? `<img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" style="width:100%;height:100%;object-fit:contain;">`
       : `<div class="purifier-vector">
            <i class="fa-solid fa-droplet-slash" style="opacity: 0.1; position: absolute; font-size: 8rem; left: 50%; top: 50%; transform: translate(-50%, -50%);"></i>
            <i class="fa-solid fa-glass-water" style="color: var(--primary); font-size: 3.5rem;"></i>
          </div>`;
 
     card.innerHTML = `
-      ${p.badge ? `<div class="product-badge">${p.badge}</div>` : ""}
+      ${p.badge ? `<div class="product-badge">${escapeHTML(p.badge)}</div>` : ""}
       <div class="product-img-wrapper">
         ${imageHTML}
         <div class="water-indicator"></div>
       </div>
       <div class="product-info">
-        <span class="product-brand">${p.brand}</span>
-        <h3 class="product-name">${p.name}</h3>
+        <span class="product-brand">${escapeHTML(p.brand)}</span>
+        <h3 class="product-name">${escapeHTML(p.name)}</h3>
         <ul class="product-specs">
           ${specsHTML}
         </ul>

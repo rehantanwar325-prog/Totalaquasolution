@@ -8,6 +8,22 @@ const SUPABASE_URL = "https://givabiaeqvlamyvigsjs.supabase.co";
 const SUPABASE_KEY = "sb_publishable_35Fcp9wKNOc2DpzmQqHeyw_jmnoq85m";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Helper: Escape HTML to prevent XSS
+function escapeHTML(str) {
+  if (str === null || str === undefined) return "";
+  if (typeof str !== 'string') str = String(str);
+  return str.replace(/[&<>"']/g, function(m) {
+    switch (m) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#039;';
+      default: return m;
+    }
+  });
+}
+
 // Default shop config
 const defaultConfig = {
   shopName: "Total Aqua Solution",
@@ -68,6 +84,64 @@ let shopConfig = { ...defaultConfig };
 let productsList = [];
 let currentImageBase64 = "";
 let deletingProductId = null;
+let idleTimer = null;
+
+// Rate Limit / Brute Force State (Fallback in case localStorage is disabled or restricted)
+let loginAttemptsInMemory = 0;
+let lockUntilInMemory = 0;
+
+const safeStorage = {
+  getItem(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      // ignore
+    }
+  },
+  removeItem(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      // ignore
+    }
+  }
+};
+
+function getLoginAttempts() {
+  const stored = safeStorage.getItem("admin_login_attempts");
+  if (stored !== null) return parseInt(stored) || 0;
+  return loginAttemptsInMemory;
+}
+
+function setLoginAttempts(val) {
+  safeStorage.setItem("admin_login_attempts", val);
+  loginAttemptsInMemory = val;
+}
+
+function getLockUntil() {
+  const stored = safeStorage.getItem("admin_login_lock_until");
+  if (stored !== null) return parseInt(stored) || 0;
+  return lockUntilInMemory;
+}
+
+function setLockUntil(val) {
+  safeStorage.setItem("admin_login_lock_until", val);
+  lockUntilInMemory = val;
+}
+
+function clearLoginAttempts() {
+  safeStorage.removeItem("admin_login_attempts");
+  safeStorage.removeItem("admin_login_lock_until");
+  loginAttemptsInMemory = 0;
+  lockUntilInMemory = 0;
+}
 
 // Verify Login using Supabase Auth (supports username by appending a fake domain)
 async function verifyLogin(username, password) {
@@ -214,14 +288,47 @@ const secConfirmPass = document.getElementById("secConfirmPass");
 const secError = document.getElementById("secError");
 const secErrorMsg = document.getElementById("secErrorMsg");
 
+// Login Brute Force Lock utility
+function startLoginLockTimer(lockTime) {
+  const submitBtn = loginForm.querySelector("button[type='submit']");
+  if (!submitBtn) return;
+  submitBtn.disabled = true;
+  loginError.style.display = "flex";
+  
+  const updateTimer = () => {
+    const timeLeft = lockTime - Date.now();
+    if (timeLeft <= 0) {
+      submitBtn.disabled = false;
+      loginError.style.display = "none";
+      clearLoginAttempts();
+      clearInterval(timerInterval);
+    } else {
+      const minutes = Math.floor(timeLeft / 60000);
+      const seconds = Math.floor((timeLeft % 60000) / 1000);
+      loginError.querySelector("span").textContent = `Too many failed attempts. Locked for ${minutes}m ${seconds}s.`;
+    }
+  };
+  
+  updateTimer();
+  const timerInterval = setInterval(updateTimer, 1000);
+}
+
 // ============================
 // INIT
 // ============================
 document.addEventListener("DOMContentLoaded", async () => {
+  // Check brute force lock
+  const lockUntil = getLockUntil();
+  if (lockUntil > Date.now()) {
+    startLoginLockTimer(lockUntil);
+  }
+
   // Check session with error handling to prevent script crashes on network/paused DB errors
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
+      // Clear login attempts on successful auto-login session load
+      clearLoginAttempts();
       await showDashboard();
     } else {
       loginScreen.style.display = "flex";
@@ -236,15 +343,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Login
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    
+    // Check lock
+    const currentLock = getLockUntil();
+    if (currentLock > Date.now()) {
+      e.stopPropagation();
+      return;
+    }
+
     try {
       const ok = await verifyLogin(loginUser.value.trim(), loginPass.value);
       if (ok) {
         loginError.style.display = "none";
+        clearLoginAttempts();
         await showDashboard();
       } else {
-        loginError.style.display = "flex";
-        loginPass.value = "";
-        loginPass.focus();
+        let attempts = getLoginAttempts() + 1;
+        setLoginAttempts(attempts);
+        
+        if (attempts >= 5) {
+          const lockTime = Date.now() + 5 * 60 * 1000; // 5 minutes
+          setLockUntil(lockTime);
+          startLoginLockTimer(lockTime);
+        } else {
+          loginError.style.display = "flex";
+          loginError.querySelector("span").textContent = `Username ya password galat hai! (${5 - attempts} attempts left)`;
+          loginPass.value = "";
+          loginPass.focus();
+        }
       }
     } catch (err) {
       console.error("Login submit handler error:", err);
@@ -262,6 +388,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Logout
   logoutBtn.addEventListener("click", async () => {
+    if (idleTimer) clearTimeout(idleTimer);
     await supabase.auth.signOut();
     adminWrapper.style.display = "none";
     loginScreen.style.display = "flex";
@@ -391,6 +518,37 @@ function switchPage(pageName) {
 // Make switchPage globally accessible for inline handlers
 window.switchPage = switchPage;
 
+// Inactivity auto-logout (15 minutes of idle state)
+function initInactivityTracker() {
+  const idleTimeoutMs = 15 * 60 * 1000; // 15 minutes
+
+  const resetIdleTimer = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(async () => {
+      console.log("Inactivity detected. Logging out...");
+      try {
+        await supabase.auth.signOut();
+      } catch(err) {
+        console.error("Signout error during inactivity logout:", err);
+      }
+      adminWrapper.style.display = "none";
+      loginScreen.style.display = "flex";
+      loginUser.value = "";
+      loginPass.value = "";
+      showToast("Session expired due to inactivity. Please log in again.");
+    }, idleTimeoutMs);
+  };
+
+  // Add event listeners for user activity
+  const events = ['mousemove', 'keypress', 'scroll', 'click', 'touchstart'];
+  events.forEach(event => {
+    document.addEventListener(event, resetIdleTimer, { passive: true });
+  });
+
+  // Start tracking
+  resetIdleTimer();
+}
+
 // ============================
 // SHOW DASHBOARD
 // ============================
@@ -402,6 +560,7 @@ async function showDashboard() {
   updateDashboardStats();
   renderProductsGrid();
   renderRecentProducts();
+  initInactivityTracker();
 }
 
 // ============================
@@ -563,21 +722,21 @@ function renderProductsGrid() {
     const card = document.createElement("div");
     card.className = "prod-admin-card";
 
-    const specsHTML = p.specs.slice(0, 4).map(s => `<span class="pac-spec-tag">${s}</span>`).join("");
+    const specsHTML = p.specs.slice(0, 4).map(s => `<span class="pac-spec-tag">${escapeHTML(s)}</span>`).join("");
 
     const imageHTML = (p.image && p.image.trim() !== "" && p.image !== "null" && p.image !== "undefined")
-      ? `<img src="${p.image}" alt="${p.name}">`
+      ? `<img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}">`
       : `<i class="fa-solid fa-glass-water pac-placeholder"></i>`;
 
     card.innerHTML = `
       <div class="pac-image">
         ${imageHTML}
-        ${p.badge ? `<div class="pac-badge">${p.badge}</div>` : ""}
+        ${p.badge ? `<div class="pac-badge">${escapeHTML(p.badge)}</div>` : ""}
       </div>
       <div class="pac-body">
-        <div class="pac-brand">${p.brand}</div>
-        <div class="pac-name">${p.name}</div>
-        <span class="pac-type">${p.type}</span>
+        <div class="pac-brand">${escapeHTML(p.brand)}</div>
+        <div class="pac-name">${escapeHTML(p.name)}</div>
+        <span class="pac-type">${escapeHTML(p.type)}</span>
         <div class="pac-specs">${specsHTML}</div>
         <div class="pac-price-row">
           <div class="pac-prices">
@@ -618,7 +777,7 @@ function renderRecentProducts() {
   }
   recent.forEach(p => {
     const imgHTML = (p.image && p.image.trim() !== "" && p.image !== "null" && p.image !== "undefined")
-      ? `<img src="${p.image}" alt="${p.name}">`
+      ? `<img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}">`
       : `<i class="fa-solid fa-glass-water"></i>`;
 
     const el = document.createElement("div");
@@ -626,8 +785,8 @@ function renderRecentProducts() {
     el.innerHTML = `
       <div class="recent-prod-img">${imgHTML}</div>
       <div class="recent-prod-info">
-        <h4>${p.name}</h4>
-        <span>${p.brand} · ${p.type}</span>
+        <h4>${escapeHTML(p.name)}</h4>
+        <span>${escapeHTML(p.brand)} · ${escapeHTML(p.type)}</span>
       </div>
       <div class="recent-prod-price">₹${p.price.toLocaleString()}</div>
     `;
@@ -753,7 +912,7 @@ function handleImageUpload(e) {
 }
 
 function showImagePreview(src) {
-  imagePreview.innerHTML = `<img src="${src}" alt="Preview">`;
+  imagePreview.innerHTML = `<img src="${escapeHTML(src)}" alt="Preview">`;
   removeImageBtn.style.display = "inline-flex";
 }
 
@@ -915,8 +1074,9 @@ async function handleSecuritySave() {
     return;
   }
 
-  if (newPass.length < 6) {
-    secErrorMsg.textContent = "Password kam se kam 6 characters ka hona chahiye!";
+  const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+  if (!strongPasswordRegex.test(newPass)) {
+    secErrorMsg.textContent = "Password kam se kam 8 characters ka hona chahiye, jisme kam se kam ek uppercase letter, ek lowercase letter, ek number aur ek special character (jaise @, #, $, etc.) hona zaroori hai!";
     secError.style.display = "flex";
     return;
   }
