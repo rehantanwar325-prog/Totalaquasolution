@@ -684,14 +684,24 @@ async function loadProducts() {
       image: item.image,
       specs: item.specs || []
     }));
+
+    if (productsList.length === 0) {
+      const saved = localStorage.getItem("total_aqua_products");
+      if (saved) {
+        try { productsList = JSON.parse(saved); } catch(err) { productsList = [...defaultProducts]; }
+      } else {
+        productsList = [...defaultProducts];
+      }
+    }
   } catch (e) {
     console.error("Error loading products from Supabase", e);
-    productsList = [...defaultProducts];
+    const saved = localStorage.getItem("total_aqua_products");
+    if (saved) {
+      try { productsList = JSON.parse(saved); } catch(err) { productsList = [...defaultProducts]; }
+    } else {
+      productsList = [...defaultProducts];
+    }
   }
-}
-
-function saveProductsLS() {
-  localStorage.setItem("total_aqua_products", JSON.stringify(productsList));
 }
 
 function renderProductsGrid() {
