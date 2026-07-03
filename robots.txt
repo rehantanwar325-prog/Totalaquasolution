@@ -1,0 +1,11 @@
+# Robots.txt - Total Aqua Solution
+# Block admin page from search engine crawling
+
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /admin.css
+Disallow: /admin.js
+
+# Sitemap
+Sitemap: https://totalaquasolution.pages.dev/sitemap.xml

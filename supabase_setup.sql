@@ -62,33 +62,64 @@ ALTER TABLE public.shop_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 
 -- 6. Policies for shop_config
+-- Public can only READ shop config
 CREATE POLICY "Allow public read-only access to shop_config"
 ON public.shop_config FOR SELECT
 USING (true);
 
+-- Only authenticated admin can UPDATE shop config
 CREATE POLICY "Allow authenticated users to update shop_config"
 ON public.shop_config FOR UPDATE
 TO authenticated
 USING (true)
 WITH CHECK (true);
 
+-- SECURITY: Block INSERT on shop_config (only 1 row should exist, inserted via migration)
+CREATE POLICY "Block insert on shop_config"
+ON public.shop_config FOR INSERT
+TO authenticated
+WITH CHECK (false);
+
+-- SECURITY: Block DELETE on shop_config (prevent accidental/malicious deletion)
+CREATE POLICY "Block delete on shop_config"
+ON public.shop_config FOR DELETE
+TO authenticated
+USING (false);
+
 -- 7. Policies for products
+-- Public can only READ products
 CREATE POLICY "Allow public read-only access to products"
 ON public.products FOR SELECT
 USING (true);
 
+-- Only authenticated admin can INSERT new products
 CREATE POLICY "Allow authenticated users to insert products"
 ON public.products FOR INSERT
 TO authenticated
 WITH CHECK (true);
 
+-- Only authenticated admin can UPDATE products
 CREATE POLICY "Allow authenticated users to update products"
 ON public.products FOR UPDATE
 TO authenticated
 USING (true)
 WITH CHECK (true);
 
+-- Only authenticated admin can DELETE products
 CREATE POLICY "Allow authenticated users to delete products"
 ON public.products FOR DELETE
 TO authenticated
 USING (true);
+
+-- ========================================================
+-- SECURITY NOTES:
+-- ========================================================
+-- 1. The Supabase anon/publishable key is designed to be public.
+--    All security relies on these RLS policies - NEVER disable RLS.
+-- 2. shop_config INSERT and DELETE are blocked even for authenticated
+--    users to prevent accidental data loss.
+-- 3. For additional security, consider enabling Supabase's built-in
+--    rate limiting in the Dashboard > Auth > Rate Limits section.
+-- 4. Regularly rotate the service_role key (used only server-side).
+-- 5. Enable email confirmation for new admin signups in Auth settings.
+

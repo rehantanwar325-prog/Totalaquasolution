@@ -9,6 +9,15 @@
     content="Best RO water purifier sales, installation, repair, and AMC service in Sikar, Rajasthan. Get genuine Kent, Aquaguard, Pureit & Livpure purifiers at best rates.">
   <meta name="keywords" content="water purifier Sikar, RO service Sikar, best RO seller Sikar, Kent RO Sikar, Aquaguard Sikar, RO repair Sikar, water filter repair Sikar, Total Aqua Solution Sikar, Sikar water purifier">
 
+  <!-- Security: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://givabiaeqvlamyvigsjs.supabase.co; connect-src 'self' https://givabiaeqvlamyvigsjs.supabase.co; frame-src https://www.google.com;">
+
+  <!-- Security: Prevent MIME-type sniffing -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+
+  <!-- Security: Referrer Policy -->
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
   <!-- Local Business Schema for Local SEO -->
   <script type="application/ld+json">
   {
@@ -243,12 +252,12 @@
           <div class="form-group">
             <label for="custName"><i class="fa-solid fa-user"></i> Aapka Naam (Name) <span
                 class="required">*</span></label>
-            <input type="text" id="custName" required placeholder="Enter your full name">
+            <input type="text" id="custName" required placeholder="Enter your full name" maxlength="100" pattern="[A-Za-z\s\.]{2,100}" title="Please enter a valid name (letters and spaces only)">
           </div>
           <div class="form-group">
             <label for="custAddress"><i class="fa-solid fa-location-dot"></i> Delivery Address <span
                 class="required">*</span></label>
-            <textarea id="custAddress" required rows="3" placeholder="Enter complete address with Landmark"></textarea>
+            <textarea id="custAddress" required rows="3" placeholder="Enter complete address with Landmark" maxlength="500"></textarea>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-outline" id="cancelCheckout">Cancel</button>
@@ -340,11 +349,11 @@
           <div class="form-row">
             <div class="form-group">
               <label for="srvName">Naam (Name) <span class="required">*</span></label>
-              <input type="text" id="srvName" required placeholder="Aapka Naam">
+              <input type="text" id="srvName" required placeholder="Aapka Naam" maxlength="100" pattern="[A-Za-z\s\.]{2,100}" title="Please enter a valid name">
             </div>
             <div class="form-group">
               <label for="srvPhone">Phone Number <span class="required">*</span></label>
-              <input type="tel" id="srvPhone" required placeholder="Mobile Number">
+              <input type="tel" id="srvPhone" required placeholder="Mobile Number" maxlength="15" pattern="[+]?[0-9]{10,15}" title="Valid 10-15 digit phone number enter karein">
             </div>
           </div>
 
@@ -387,7 +396,7 @@
           <div class="form-group">
             <label for="srvAddress">Address (Full Details) <span class="required">*</span></label>
             <textarea id="srvAddress" required rows="3"
-              placeholder="Pura address landmark ke sath enter karein"></textarea>
+              placeholder="Pura address landmark ke sath enter karein" maxlength="500"></textarea>
           </div>
 
           <button type="submit" class="btn btn-success btn-block btn-lg"><i class="fa-brands fa-whatsapp"></i> Book
@@ -466,9 +475,9 @@
         <p class="footer-desc">Aapki area ki trusted water purifier shop. Hum pradan karte hain best brands ke systems
           aur premium service directly aapke ghar par.</p>
         <div class="social-links">
-          <a href="#" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
-          <a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
-          <a href="#" aria-label="Twitter"><i class="fa-brands fa-twitter"></i></a>
+          <a href="#" aria-label="Facebook" rel="noopener noreferrer"><i class="fa-brands fa-facebook-f"></i></a>
+          <a href="#" aria-label="Instagram" rel="noopener noreferrer"><i class="fa-brands fa-instagram"></i></a>
+          <a href="#" aria-label="Twitter" rel="noopener noreferrer"><i class="fa-brands fa-twitter"></i></a>
         </div>
       </div>
 

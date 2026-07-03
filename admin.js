@@ -89,6 +89,28 @@ let idleTimer = null;
 // Rate Limit / Brute Force State (Fallback in case localStorage is disabled or restricted)
 let loginAttemptsInMemory = 0;
 let lockUntilInMemory = 0;
+let passwordVisibilityTimer = null;
+
+// Form submission rate limiting state
+const formSubmitTimestamps = {};
+const FORM_RATE_LIMIT_MS = 5000; // 5 seconds between form submissions
+
+function isFormRateLimited(formId) {
+  const now = Date.now();
+  const lastSubmit = formSubmitTimestamps[formId] || 0;
+  if (now - lastSubmit < FORM_RATE_LIMIT_MS) {
+    showToast("Please wait a few seconds before submitting again.");
+    return true;
+  }
+  formSubmitTimestamps[formId] = now;
+  return false;
+}
+
+// Input sanitization helper: strip dangerous characters from text inputs
+function sanitizeInput(str) {
+  if (!str) return "";
+  return str.replace(/<[^>]*>/g, "").replace(/[{}]/g, "").trim();
+}
 
 const safeStorage = {
   getItem(key) {
@@ -152,12 +174,12 @@ async function verifyLogin(username, password) {
       password
     });
     if (error) {
-      console.error("Login error:", error.message);
+      console.error("Login failed");
       return false;
     }
     return true;
   } catch (e) {
-    console.error("Authentication request failed:", e);
+    console.error("Authentication request failed");
     return false;
   }
 }
@@ -361,19 +383,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         let attempts = getLoginAttempts() + 1;
         setLoginAttempts(attempts);
         
-        if (attempts >= 5) {
-          const lockTime = Date.now() + 5 * 60 * 1000; // 5 minutes
+        if (attempts >= 3) {
+          const lockTime = Date.now() + 10 * 60 * 1000; // 10 minutes
           setLockUntil(lockTime);
           startLoginLockTimer(lockTime);
         } else {
           loginError.style.display = "flex";
-          loginError.querySelector("span").textContent = `Username ya password galat hai! (${5 - attempts} attempts left)`;
+          loginError.querySelector("span").textContent = `Username ya password galat hai! (${3 - attempts} attempts left)`;
           loginPass.value = "";
           loginPass.focus();
         }
       }
     } catch (err) {
-      console.error("Login submit handler error:", err);
+      console.error("Login failed due to connection error");
       loginError.style.display = "flex";
       loginError.querySelector("span").textContent = "Connection error. Please try again.";
     }
@@ -384,6 +406,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     const type = loginPass.type === "password" ? "text" : "password";
     loginPass.type = type;
     togglePass.querySelector("i").className = type === "password" ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
+    
+    // Security: Auto-hide password after 5 seconds
+    if (type === "text") {
+      if (passwordVisibilityTimer) clearTimeout(passwordVisibilityTimer);
+      passwordVisibilityTimer = setTimeout(() => {
+        loginPass.type = "password";
+        togglePass.querySelector("i").className = "fa-solid fa-eye";
+      }, 5000);
+    } else {
+      if (passwordVisibilityTimer) clearTimeout(passwordVisibilityTimer);
+    }
   });
 
   // Logout
@@ -450,6 +483,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Settings form
   settingsForm.addEventListener("submit", (e) => {
     e.preventDefault();
+    if (isFormRateLimited('settings')) return;
     saveShopSettings();
   });
 
@@ -485,6 +519,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Security form
   securityForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (isFormRateLimited('security')) return;
     await handleSecuritySave();
   });
 });
@@ -587,7 +622,7 @@ async function loadShopConfig() {
       };
     }
   } catch (e) {
-    console.error("Error loading config from Supabase, using defaults", e);
+    console.error("Config loading failed, using defaults");
     // fallback to local storage if needed
     const saved = localStorage.getItem("total_aqua_config");
     if (saved) {
@@ -617,13 +652,13 @@ function sanitizeWhatsApp(num) {
 
 async function saveShopSettings() {
   const updatedConfig = {
-    shop_name: sShopName.value.trim(),
-    location: sLocation.value.trim(),
-    tagline: sTagline.value.trim(),
+    shop_name: sanitizeInput(sShopName.value),
+    location: sanitizeInput(sLocation.value),
+    tagline: sanitizeInput(sTagline.value),
     whatsapp: sanitizeWhatsApp(sWhatsApp.value.trim()),
-    phone: sPhone.value.trim(),
-    address: sAddress.value.trim(),
-    hours: sHours.value.trim()
+    phone: sanitizeInput(sPhone.value),
+    address: sanitizeInput(sAddress.value),
+    hours: sanitizeInput(sHours.value)
   };
 
   // Always update local state and localStorage first
@@ -649,7 +684,7 @@ async function saveShopSettings() {
     if (error) throw error;
     showToast("Shop settings saved successfully!");
   } catch (e) {
-    console.error("Supabase sync failed, saved locally", e);
+    console.error("Supabase sync failed, saved locally");
     showToast("Settings saved locally! (Supabase sync pending)");
   }
 }
@@ -694,7 +729,7 @@ async function loadProducts() {
       }
     }
   } catch (e) {
-    console.error("Error loading products from Supabase", e);
+    console.error("Error loading products from Supabase");
     const saved = localStorage.getItem("total_aqua_products");
     if (saved) {
       try { productsList = JSON.parse(saved); } catch(err) { productsList = [...defaultProducts]; }
@@ -947,14 +982,14 @@ async function handleProductSave(e) {
   const id = prodEditId.value;
   let brand = prodBrand.value;
   if (brand === "Other") {
-    brand = prodBrandCustom.value.trim() || "Other";
+    brand = sanitizeInput(prodBrandCustom.value) || "Other";
   }
-  const name = prodName.value.trim();
+  const name = sanitizeInput(prodName.value);
   const type = prodType.value;
   const badge = prodBadge.value;
   const price = parseInt(prodPrice.value);
   const originalPrice = parseInt(prodOriginalPrice.value);
-  const specsArray = prodSpecs.value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+  const specsArray = prodSpecs.value.split(",").map(s => sanitizeInput(s)).filter(s => s.length > 0);
 
   let imageUrl = currentImageBase64;
   
@@ -1023,7 +1058,7 @@ async function handleProductSave(e) {
     }
     showToast(`"${name}" successfully ${id ? 'update' : 'add'} ho gaya!`);
   } catch (e) {
-    console.error("Supabase sync failed, saved locally", e);
+    console.error("Supabase sync failed, saved locally");
     showToast(`"${name}" saved locally! (Supabase sync pending)`);
   }
 }
@@ -1060,7 +1095,7 @@ async function handleDeleteConfirm() {
     if (error) throw error;
     showToast(`"${prod?.name || "Product"}" delete ho gaya!`);
   } catch (e) {
-    console.error("Supabase sync failed, deleted locally", e);
+    console.error("Supabase sync failed, deleted locally");
     showToast(`"${prod?.name || "Product"}" locally delete hua! (Supabase sync pending)`);
   }
   deletingProductId = null;
@@ -1112,8 +1147,8 @@ async function handleSecuritySave() {
 
     securityForm.reset();
   } catch (e) {
-    console.error("Error updating credentials in Supabase", e);
-    secErrorMsg.textContent = e.message || "Credential update failed!";
+    console.error("Error updating credentials");
+    secErrorMsg.textContent = "Credential update failed! Please try again.";
     secError.style.display = "flex";
   }
 }

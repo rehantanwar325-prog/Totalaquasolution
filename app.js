@@ -105,6 +105,44 @@ function escapeHTML(str) {
   });
 }
 
+// Security: Form submission rate limiting (anti-spam)
+const formRateLimits = {};
+const RATE_LIMIT_MS = 10000; // 10 seconds between submissions
+const MAX_SUBMISSIONS_PER_SESSION = 15; // Max submissions per session
+let totalSubmissions = 0;
+
+function isRateLimited(formId) {
+  const now = Date.now();
+  const lastSubmit = formRateLimits[formId] || 0;
+  
+  if (totalSubmissions >= MAX_SUBMISSIONS_PER_SESSION) {
+    alert("Too many submissions! Please refresh the page and try again.");
+    return true;
+  }
+  
+  if (now - lastSubmit < RATE_LIMIT_MS) {
+    const secsLeft = Math.ceil((RATE_LIMIT_MS - (now - lastSubmit)) / 1000);
+    alert(`Please wait ${secsLeft} seconds before submitting again.`);
+    return true;
+  }
+  
+  formRateLimits[formId] = now;
+  totalSubmissions++;
+  return false;
+}
+
+// Security: Phone number validation
+function isValidPhone(phone) {
+  const cleaned = phone.replace(/[\s\-().]/g, "");
+  return /^[+]?[0-9]{10,15}$/.test(cleaned);
+}
+
+// Security: Sanitize user input (strip HTML tags)
+function sanitizeInput(str) {
+  if (!str) return "";
+  return str.replace(/<[^>]*>/g, "").replace(/[{}]/g, "").trim();
+}
+
 // Default configurations
 const defaultConfig = {
   shopName: "Total Aqua Solution",
@@ -247,7 +285,7 @@ async function loadProducts() {
       }
     }
   } catch (e) {
-    console.error("Error loading products from Supabase, using local fallback", e);
+    console.error("Error loading products, using local fallback");
     // Try localStorage first, then defaults
     const saved = localStorage.getItem("total_aqua_products");
     if (saved) {
@@ -281,7 +319,7 @@ async function loadConfig() {
       };
     }
   } catch (e) {
-    console.error("Error loading config from Supabase, using local fallback", e);
+    console.error("Error loading config, using local fallback");
     const saved = localStorage.getItem("total_aqua_config");
     if (saved) {
       try {
@@ -532,9 +570,22 @@ function closeCheckout() {
 function handleCheckoutSubmit(e) {
   e.preventDefault();
   if (!selectedProduct) return;
+  
+  // Security: Rate limit check
+  if (isRateLimited('checkout')) return;
 
-  const name = custName.value.trim();
-  const address = custAddress.value.trim();
+  const name = sanitizeInput(custName.value);
+  const address = sanitizeInput(custAddress.value);
+  
+  // Security: Validate inputs
+  if (name.length < 2 || name.length > 100) {
+    alert("Please enter a valid name (2-100 characters).");
+    return;
+  }
+  if (address.length < 5 || address.length > 500) {
+    alert("Please enter a valid address (5-500 characters).");
+    return;
+  }
 
   // WhatsApp order template:
   // "Hello! Main [Machine Ka Naam] kharidna chahta hoon. Price: ₹[Amount]. Mera naam: ___ , Address: ___ . Please confirm karein."
@@ -552,13 +603,32 @@ function handleCheckoutSubmit(e) {
 // Service Request Submit
 function handleServiceSubmit(e) {
   e.preventDefault();
+  
+  // Security: Rate limit check
+  if (isRateLimited('service')) return;
 
-  const name = document.getElementById("srvName").value.trim();
+  const name = sanitizeInput(document.getElementById("srvName").value);
   const phone = document.getElementById("srvPhone").value.trim();
   const brand = document.getElementById("srvBrand").value;
   const problem = document.getElementById("srvProblem").value;
   const dateVal = document.getElementById("srvDate").value;
-  const address = document.getElementById("srvAddress").value.trim();
+  const address = sanitizeInput(document.getElementById("srvAddress").value);
+  
+  // Security: Validate phone number
+  if (!isValidPhone(phone)) {
+    alert("Please enter a valid phone number (10-15 digits).");
+    return;
+  }
+  
+  // Security: Validate inputs
+  if (name.length < 2 || name.length > 100) {
+    alert("Please enter a valid name (2-100 characters).");
+    return;
+  }
+  if (address.length < 5 || address.length > 500) {
+    alert("Please enter a valid address (5-500 characters).");
+    return;
+  }
 
   // Formatting Date nicely (dd/mm/yyyy)
   let formattedDate = dateVal;
