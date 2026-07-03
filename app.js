@@ -504,7 +504,8 @@ function renderBrandFilters() {
   
   let html = `<button class="filter-btn active" data-filter="brand" data-value="all">All Brands</button>`;
   uniqueBrands.forEach(brand => {
-    html += `<button class="filter-btn" data-filter="brand" data-value="${brand}">${brand}</button>`;
+    const escapedBrand = escapeHTML(brand);
+    html += `<button class="filter-btn" data-filter="brand" data-value="${escapedBrand}">${escapedBrand}</button>`;
   });
   
   brandFilters.innerHTML = html;

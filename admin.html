@@ -201,7 +201,7 @@
         <div class="page-toolbar">
           <div class="search-box">
             <i class="fa-solid fa-search"></i>
-            <input type="text" id="productSearch" placeholder="Search products by name or brand...">
+            <input type="text" id="productSearch" placeholder="Search products by name or brand..." maxlength="100">
           </div>
           <button class="btn btn-primary" id="addProductBtn"><i class="fa-solid fa-plus"></i> Add New Product</button>
         </div>
@@ -243,7 +243,7 @@
               </div>
               <div class="s-field full">
                 <label><i class="fa-solid fa-location-dot"></i> Full Address <span class="req">*</span></label>
-                <textarea id="sAddress" rows="3" required placeholder="Complete address with landmark"></textarea>
+                <textarea id="sAddress" rows="3" required placeholder="Complete address with landmark" maxlength="500"></textarea>
               </div>
               <div class="s-field full">
                 <label><i class="fa-solid fa-clock"></i> Working Hours</label>
@@ -337,11 +337,11 @@
                 <option value="Blue Star">Blue Star</option>
                 <option value="Other">Other / Custom</option>
               </select>
-              <input type="text" id="prodBrandCustom" placeholder="Enter custom brand name" style="display:none; margin-top: 8px;">
+              <input type="text" id="prodBrandCustom" placeholder="Enter custom brand name" style="display:none; margin-top: 8px;" maxlength="50">
             </div>
             <div class="m-field">
               <label>Model Name <span class="req">*</span></label>
-              <input type="text" id="prodName" required placeholder="e.g. Grand Plus, Copper Eco">
+              <input type="text" id="prodName" required placeholder="e.g. Grand Plus, Copper Eco" maxlength="100">
             </div>
             <div class="m-field">
               <label>Filter Type <span class="req">*</span></label>
@@ -382,7 +382,7 @@
             </div>
             <div class="m-field full">
               <label>Key Features / Specs <span class="req">*</span></label>
-              <textarea id="prodSpecs" rows="3" required placeholder="Features ko comma (,) se separate karein&#10;e.g. TDS Controller, 9L Tank, Copper Filter, 1 Year Warranty"></textarea>
+              <textarea id="prodSpecs" rows="3" required placeholder="Features ko comma (,) se separate karein&#10;e.g. TDS Controller, 9L Tank, Copper Filter, 1 Year Warranty" maxlength="500"></textarea>
               <small>Har feature ke beech comma (,) lagayein</small>
             </div>
           </div>
@@ -411,6 +411,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="admin.js?v=1.0.1"></script>
+  <script src="admin.js?v=2.0.0"></script>
 </body>
 </html>

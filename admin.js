@@ -914,6 +914,14 @@ function handleImageUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
 
+  // Validate size (2MB limit = 2 * 1024 * 1024 bytes)
+  const MAX_SIZE = 2 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    showToast("Error: Image size should be less than 2MB.");
+    prodImage.value = ""; // Clear file input
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = function(ev) {
     const img = new Image();
@@ -1127,6 +1135,25 @@ async function handleSecuritySave() {
   }
 
   try {
+    // 0. Verify current password first by re-authenticating the user
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      secErrorMsg.textContent = "Session expired! Please log in again.";
+      secError.style.display = "flex";
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: currentUser.email,
+      password: currentPass
+    });
+
+    if (signInError) {
+      secErrorMsg.textContent = "Current password galat hai!";
+      secError.style.display = "flex";
+      return;
+    }
+
     // 1. Update Password
     const { error: passError } = await supabase.auth.updateUser({
       password: newPass
